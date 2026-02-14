@@ -190,8 +190,9 @@ elif tab == "queue":
         new_stat   = st.radio("Reservation status:", _stat_opts, horizontal=True,
                               index=_stat_opts.index(cur_label))
         if _stat_map[new_stat] != o_stat:
-            qdata["oStat"] = _stat_map[new_stat]
-            save_queue(qdata)
+            fresh_q = get_queue()          # FRESH read — preserves all reservations
+            fresh_q["oStat"] = _stat_map[new_stat]
+            save_queue(fresh_q)
             st.rerun()
 
         # ── ANNOUNCEMENT (staff + TH and above, NOT kiosk) ──
@@ -253,8 +254,9 @@ elif tab == "queue":
                             new_bqms[c["id"]] = {"nowServing": val.strip().upper()}
                 if st.form_submit_button("Update Now Serving", type="primary",
                                           use_container_width=True):
-                    qdata["bqmsState"] = new_bqms
-                    save_queue(qdata)
+                    fresh_q = get_queue()  # FRESH read — preserves all reservations
+                    fresh_q["bqmsState"] = new_bqms
+                    save_queue(fresh_q)
                     st.success("✅ Updated!")
                     st.rerun()
 
