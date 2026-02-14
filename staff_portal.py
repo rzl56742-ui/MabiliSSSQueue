@@ -387,21 +387,23 @@ elif tab == "queue":
             if r.get("bqmsNumber"):
                 bqms_html = (f'<div style="font-family:monospace;font-size:20px;'
                              f'font-weight:900;color:#22B8CF;margin-top:4px;">'
-                             f'{r["bqmsNumber"]}</div>')
+                             f'BQMS: {r["bqmsNumber"]}</div>')
 
             st.markdown(f"""<div class="sss-card" style="border-left:4px solid {bdr};">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                     <div>
-                        <strong>{r.get('catIcon','')} {r['lastName']}, {r['firstName']} {r.get('mi','')}</strong>
+                        <span style="font-family:monospace;font-size:15px;font-weight:800;color:#3399CC;">
+                            {r.get('resNum','')}</span>
+                        <span style="font-size:11px;opacity:0.5;margin-left:6px;">{src_icon}</span>
                         {pri_icon}<br/>
-                        <span style="font-size:11px;opacity:0.6;">
-                            {r.get('service','')} · {r.get('resNum','')}</span>
+                        <strong>{r.get('catIcon','')} {r['lastName']}, {r['firstName']} {r.get('mi','')}</strong><br/>
+                        <span style="font-size:12px;opacity:0.6;">
+                            {r.get('category','')} → {r.get('service','')}</span>
+                        {f'<br/><span style="font-size:11px;opacity:0.5;">📱 {r["mobile"]}</span>' if r.get('mobile') else ''}
                     </div>
                     <div style="text-align:right;">
                         <span class="sss-badge" style="background:rgba(51,153,204,0.15);color:#3399CC;">
                             {_slabels.get(r['status'], r['status'])}</span>
-                        <span class="sss-badge" style="background:rgba(128,128,128,0.1);margin-left:4px;">
-                            {src_icon}</span>
                         {bqms_html}
                     </div>
                 </div>
@@ -585,47 +587,151 @@ elif tab == "admin" and role == "th":
                     st.rerun()
 
     # ────────────────────────────────────
-    #  CATEGORIES
+    #  CATEGORIES  (Edit / Add / Delete)
     # ────────────────────────────────────
     with admin_tabs[1]:
-        st.markdown("**Service Categories**")
+        st.markdown("**Service Categories** — Edit, add, or remove transaction types.")
+        st.caption(f"Currently {len(cats)} categories configured.")
+
         for i, cat in enumerate(cats):
-            with st.expander(f"{cat['icon']} {cat['label']} — {len(cat.get('services',[]))} subs"):
+            s_info = sc.get(cat["id"], {"used": 0})
+            with st.expander(
+                f"{cat['icon']} {cat['label']} — {len(cat.get('services',[]))} subs "
+                f"(cap: {cat['cap']}, used today: {s_info['used']})"
+            ):
                 with st.form(f"cat_edit_{i}"):
                     ec1, ec2 = st.columns(2)
-                    with ec1: new_label = st.text_input("Label", value=cat["label"],
-                                                         key=f"cl_{i}")
-                    with ec2: new_icon  = st.text_input("Icon", value=cat["icon"],
-                                                         key=f"ci_{i}")
+                    with ec1:
+                        new_label = st.text_input("Label", value=cat["label"],
+                                                   key=f"cl_{i}")
+                    with ec2:
+                        new_icon = st.text_input("Icon (emoji)", value=cat["icon"],
+                                                  key=f"ci_{i}")
                     ec1, ec2, ec3 = st.columns(3)
-                    with ec1: new_short = st.text_input("Short", value=cat["short"],
-                                                         key=f"cs_{i}")
-                    with ec2: new_avg   = st.number_input("Avg Time (min)",
-                                                           value=cat["avgTime"], key=f"ca_{i}")
-                    with ec3: new_cap   = st.number_input("Cap", value=cat["cap"],
-                                                           key=f"cc_{i}")
+                    with ec1:
+                        new_short = st.text_input("Short Name", value=cat["short"],
+                                                   key=f"cs_{i}")
+                    with ec2:
+                        new_avg = st.number_input("Avg Time (min)",
+                                                   value=cat["avgTime"],
+                                                   min_value=1, key=f"ca_{i}")
+                    with ec3:
+                        new_cap = st.number_input("Daily Cap",
+                                                   value=cat["cap"],
+                                                   min_value=1, key=f"cc_{i}")
 
                     st.markdown("**Sub-transactions** (one per line):")
                     svc_text = "\n".join([s["label"] for s in cat.get("services", [])])
                     new_svcs_raw = st.text_area("Services:", value=svc_text,
                                                  key=f"csvcs_{i}")
 
-                    if st.form_submit_button("Save Category"):
+                    sc1, sc2 = st.columns([3, 1])
+                    with sc1:
+                        save_cat_btn = st.form_submit_button("💾 Save Category",
+                                                              type="primary")
+                    with sc2:
+                        del_cat_btn = st.form_submit_button("🗑️ Delete")
+
+                    if save_cat_btn:
                         new_svcs = []
                         for line in new_svcs_raw.strip().split("\n"):
                             if line.strip():
                                 sid = (line.strip().lower()
-                                       .replace(" ","_").replace("/","_")[:20])
+                                       .replace(" ", "_").replace("/", "_")[:20])
                                 new_svcs.append({"id": sid, "label": line.strip()})
-                        fresh_cats = get_categories()
-                        fresh_cats[i] = {
-                            **cat,
-                            "label": new_label, "icon": new_icon, "short": new_short,
-                            "avgTime": int(new_avg), "cap": int(new_cap),
+                        if not new_svcs:
+                            st.error("At least one sub-transaction required.")
+                        else:
+                            fresh_cats = get_categories()
+                            if i < len(fresh_cats):
+                                fresh_cats[i] = {
+                                    **cat,
+                                    "label": new_label, "icon": new_icon,
+                                    "short": new_short,
+                                    "avgTime": int(new_avg), "cap": int(new_cap),
+                                    "services": new_svcs,
+                                }
+                                save_categories(fresh_cats)
+                                st.success("✅ Saved!")
+                                st.rerun()
+
+                    if del_cat_btn:
+                        if s_info["used"] > 0:
+                            st.error(
+                                f"Cannot delete — {s_info['used']} active entries "
+                                f"today under this category. Complete or no-show "
+                                f"them first, or wait until tomorrow."
+                            )
+                        else:
+                            fresh_cats = get_categories()
+                            if i < len(fresh_cats):
+                                removed = fresh_cats.pop(i)
+                                save_categories(fresh_cats)
+                                st.success(
+                                    f"✅ Deleted: {removed['icon']} {removed['label']}"
+                                )
+                                st.rerun()
+
+        # ── ADD NEW CATEGORY ──
+        st.markdown("---")
+        st.markdown("**➕ Add New Category**")
+        with st.form("add_cat_form"):
+            nc1, nc2 = st.columns(2)
+            with nc1:
+                nc_label = st.text_input("Category Name *",
+                                          placeholder="e.g., EC / Maternity Subsidy")
+            with nc2:
+                nc_icon = st.text_input("Icon (emoji) *",
+                                         placeholder="e.g., 🏥", value="📋")
+            nc1, nc2, nc3 = st.columns(3)
+            with nc1:
+                nc_short = st.text_input("Short Name *",
+                                          placeholder="e.g., EC/Mat")
+            with nc2:
+                nc_avg = st.number_input("Avg Time (min)", value=10,
+                                          min_value=1, key="nc_avg")
+            with nc3:
+                nc_cap = st.number_input("Daily Cap", value=30,
+                                          min_value=1, key="nc_cap")
+            nc_svcs = st.text_area(
+                "Sub-transactions * (one per line)",
+                placeholder="Filing\nFollow-up\nInquiry",
+                key="nc_svcs",
+            )
+
+            if st.form_submit_button("➕ Add Category", type="primary"):
+                if not nc_label.strip() or not nc_short.strip():
+                    st.error("Category Name and Short Name required.")
+                elif not nc_svcs.strip():
+                    st.error("At least one sub-transaction required.")
+                else:
+                    cat_id = (nc_label.strip().lower()
+                              .replace(" ", "_").replace("/", "_")[:20])
+                    # Check for duplicate ID
+                    fresh_cats = get_categories()
+                    if any(c["id"] == cat_id for c in fresh_cats):
+                        st.error("A category with a similar name already exists.")
+                    else:
+                        new_svcs = []
+                        for line in nc_svcs.strip().split("\n"):
+                            if line.strip():
+                                sid = (line.strip().lower()
+                                       .replace(" ", "_").replace("/", "_")[:20])
+                                new_svcs.append({"id": sid, "label": line.strip()})
+                        fresh_cats.append({
+                            "id": cat_id,
+                            "label": nc_label.strip(),
+                            "icon": nc_icon.strip() or "📋",
+                            "short": nc_short.strip(),
+                            "avgTime": int(nc_avg),
+                            "cap": int(nc_cap),
                             "services": new_svcs,
-                        }
+                        })
                         save_categories(fresh_cats)
-                        st.success("✅ Saved!")
+                        st.success(
+                            f"✅ Added: {nc_icon.strip()} {nc_label.strip()} "
+                            f"with {len(new_svcs)} sub-transactions"
+                        )
                         st.rerun()
 
     # ────────────────────────────────────
