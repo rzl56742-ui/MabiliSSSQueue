@@ -38,6 +38,17 @@ for k, v in _DEFAULTS.items():
 
 now = datetime.now()
 
+# ═══════════════════════════════════════════════════
+#  AUTO-REFRESH — keeps queue current without clicking
+# ═══════════════════════════════════════════════════
+_staff_autorefresh_ok = False
+try:
+    from streamlit_autorefresh import st_autorefresh
+    st_autorefresh(interval=15_000, limit=None, key="staff_autorefresh")
+    _staff_autorefresh_ok = True
+except ImportError:
+    pass  # Refresh button still available
+
 # ── SESSION TIMEOUT (30 min) ──
 if st.session_state.auth_user and (_time.time() - st.session_state.last_activity > 30 * 60):
     st.session_state.auth_user = None
@@ -176,6 +187,14 @@ if tab == "change_pw":
 #  QUEUE CONSOLE
 # ═══════════════════════════════════════════════════
 elif tab == "queue":
+    # ── LIVE DATA INDICATOR ──
+    if _staff_autorefresh_ok:
+        st.caption(f"🔄 Live — auto-refreshes every 15s · Last: {now.strftime('%I:%M:%S %p')}")
+    else:
+        st.warning("⚠️ Auto-refresh not installed. Click Refresh below to see updates.")
+        if st.button("🔄 Refresh NOW", type="primary", use_container_width=True):
+            st.rerun()
+
     unassigned = [r for r in res
                   if not r.get("bqmsNumber")
                   and r.get("status") not in ("NO_SHOW","COMPLETED")]
@@ -357,7 +376,7 @@ elif tab == "queue":
                             fresh_res.append(entry)
                             fresh["res"] = fresh_res
                             save_queue(fresh)
-                            st.success(f"✅ Registered: {rn}")
+                            st.success(f"✅ Registered: **{rn}** — Give this number to the member for tracking.")
                             st.rerun()
 
     # ── FILTER BAR ──
@@ -954,7 +973,15 @@ elif tab == "dash" and role in ("th", "bh", "dh"):
 
 
 # ═══════════════════════════════════════════════════
-#  FOOTER
+#  FOOTER + SYNC DIAGNOSTIC
 # ═══════════════════════════════════════════════════
-st.markdown(f'<div class="sss-footer">RPT / SSS Gingoog Branch · MabiliSSS Queue {VER}</div>',
-    unsafe_allow_html=True)
+from shared_data import DATA_DIR, _queue_file
+_qf_staff = _queue_file()
+_live_q = get_queue()
+st.markdown("---")
+st.markdown(f"""<div style="text-align:center;font-size:10px;opacity:0.4;padding:8px;">
+    RPT / SSS Gingoog Branch · MabiliSSS Queue {VER}<br/>
+    🔗 Data: <code>{DATA_DIR}</code> · Q: <code>{_qf_staff.name}</code>
+    ({len(_live_q.get('res',[]))} entries) · oStat: {_live_q.get('oStat','?')}
+    · Auto-refresh: {'✅ 15s' if _staff_autorefresh_ok else '❌ NOT INSTALLED'}
+</div>""", unsafe_allow_html=True)

@@ -114,7 +114,9 @@ if _ann:
     """, unsafe_allow_html=True)
 
 if not _autorefresh_ok:
-    st.caption("⚠️ Auto-refresh not available. Click Refresh to see updates.")
+    st.warning("⚠️ Auto-refresh not installed. Tap Refresh to see updates.")
+    if st.button("🔄 Refresh Page", type="primary", use_container_width=True, key="member_manual_refresh"):
+        st.rerun()
 
 
 screen = st.session_state.screen
@@ -388,6 +390,8 @@ elif screen == "track_input":
         <h3>Track Your Queue</h3>
         <p style="opacity:0.6;">See your live BQMS number and wait time.</p>
     </div>""", unsafe_allow_html=True)
+    st.caption("💡 Online reservations start with **R-** (e.g., R-0214-001). "
+               "Walk-in / kiosk numbers start with **K-** (e.g., K-0214-001).")
 
     track_mode = st.radio("Search by:", ["📱 Mobile Number", "#️⃣ Reservation Number"],
                           horizontal=True)
@@ -396,7 +400,7 @@ elif screen == "track_input":
         if "Mobile" in track_mode:
             track_val = st.text_input("Mobile number", placeholder="09XX XXX XXXX")
         else:
-            track_val = st.text_input("Reservation number", placeholder="e.g., R-0214-005")
+            track_val = st.text_input("Reservation number", placeholder="e.g., R-0214-005 or K-0214-001")
 
         if st.form_submit_button("🔍 Find My Queue", type="primary",
                                   use_container_width=True):
@@ -543,7 +547,14 @@ elif screen == "tracker":
 
 
 # ═══════════════════════════════════════════════════
-#  FOOTER
+#  FOOTER + SYNC DIAGNOSTIC
 # ═══════════════════════════════════════════════════
-st.markdown(f'<div class="sss-footer">RPT / SSS Gingoog Branch · MabiliSSS Queue {VER}</div>',
-    unsafe_allow_html=True)
+from shared_data import DATA_DIR
+_qf = DATA_DIR / f"queue_{now.strftime('%Y-%m-%d')}.json"
+st.markdown("---")
+st.markdown(f"""<div style="text-align:center;font-size:10px;opacity:0.4;padding:8px;">
+    RPT / SSS Gingoog Branch · MabiliSSS Queue {VER}<br/>
+    🔗 Data: <code>{DATA_DIR}</code> · Q: <code>{_qf.name}</code>
+    ({len(res)} entries) · Status: {o_stat}
+    · Auto-refresh: {'✅' if _autorefresh_ok else '❌ NOT INSTALLED'}
+</div>""", unsafe_allow_html=True)
