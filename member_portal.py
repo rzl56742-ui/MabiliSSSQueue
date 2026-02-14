@@ -54,14 +54,15 @@ def go(scr):
 
 
 # ═══════════════════════════════════════════════════
-#  AUTO-REFRESH (tracker screen only)
+#  AUTO-REFRESH — ALL SCREENS (status, BQMS, announcements)
 # ═══════════════════════════════════════════════════
-if st.session_state.screen == "tracker":
-    try:
-        from streamlit_autorefresh import st_autorefresh
-        st_autorefresh(interval=20_000, limit=None, key="member_autorefresh")
-    except ImportError:
-        pass  # graceful fallback — manual Refresh still available
+_autorefresh_ok = False
+try:
+    from streamlit_autorefresh import st_autorefresh
+    st_autorefresh(interval=20_000, limit=None, key="member_autorefresh")
+    _autorefresh_ok = True
+except ImportError:
+    pass  # manual Refresh still available; warning shown below
 
 
 # ═══════════════════════════════════════════════════
@@ -83,8 +84,37 @@ st.markdown(f"""<div class="sss-alert sss-alert-{_acls.get(o_stat,'green')}"
     style="font-size:15px;"><strong>{sm['emoji']} {sm['label']}</strong></div>""",
     unsafe_allow_html=True)
 
-if branch.get("announcement"):
-    st.info(f"📢 {branch['announcement']}")
+# ── STICKY SCROLLING ANNOUNCEMENT ──
+_ann = branch.get("announcement", "").strip()
+if _ann:
+    st.markdown(f"""
+    <div style="
+        position: sticky; top: 0; z-index: 999;
+        background: linear-gradient(90deg, #002E52, #0066A1);
+        color: #FFFFFF; padding: 10px 0; margin-bottom: 12px;
+        border-radius: 8px; overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    ">
+        <div style="
+            display: inline-block; white-space: nowrap;
+            animation: sss-scroll 18s linear infinite;
+            font-weight: 700; font-size: 14px;
+        ">
+            📢&nbsp;&nbsp;{_ann}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            📢&nbsp;&nbsp;{_ann}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            📢&nbsp;&nbsp;{_ann}
+        </div>
+    </div>
+    <style>
+        @keyframes sss-scroll {{
+            0%   {{ transform: translateX(0%); }}
+            100% {{ transform: translateX(-33.33%); }}
+        }}
+    </style>
+    """, unsafe_allow_html=True)
+
+if not _autorefresh_ok:
+    st.caption("⚠️ Auto-refresh not available. Click Refresh to see updates.")
 
 
 screen = st.session_state.screen
@@ -508,7 +538,7 @@ elif screen == "tracker":
                 go("track_input")
 
         if not is_done and not is_ns:
-            st.caption(f"🔄 Auto-refreshes every 20 seconds · "
+            st.caption(f"🔄 Page auto-refreshes every 20s · "
                        f"Last: {now.strftime('%I:%M:%S %p')}")
 
 

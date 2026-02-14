@@ -194,6 +194,41 @@ elif tab == "queue":
             save_queue(qdata)
             st.rerun()
 
+        # ── ANNOUNCEMENT (staff + TH and above, NOT kiosk) ──
+        if role != "kiosk":
+            with st.expander(
+                f"📢 Announcement {'(ACTIVE)' if branch.get('announcement','').strip() else '(none)'}",
+                expanded=bool(branch.get("announcement", "").strip()),
+            ):
+                cur_ann = branch.get("announcement", "")
+                with st.form("quick_announce"):
+                    new_ann = st.text_area(
+                        "Announcement shown on member app (scrolling banner)",
+                        value=cur_ann,
+                        placeholder="e.g., Loan release delayed today due to system maintenance.",
+                        key="ann_text",
+                        height=80,
+                    )
+                    ann_c1, ann_c2 = st.columns([3, 1])
+                    with ann_c1:
+                        ann_save = st.form_submit_button("📢 Post Announcement",
+                                                          type="primary")
+                    with ann_c2:
+                        ann_clear = st.form_submit_button("🗑️ Clear")
+
+                    if ann_save:
+                        fresh_br = get_branch()
+                        fresh_br["announcement"] = new_ann.strip()
+                        save_branch(fresh_br)
+                        st.success("✅ Announcement posted! Members see it now.")
+                        st.rerun()
+                    if ann_clear:
+                        fresh_br = get_branch()
+                        fresh_br["announcement"] = ""
+                        save_branch(fresh_br)
+                        st.success("✅ Announcement cleared.")
+                        st.rerun()
+
         # ── UNASSIGNED ALERT ──
         if unassigned:
             st.markdown(f"""<div class="sss-alert sss-alert-red" style="font-size:16px;">
@@ -412,12 +447,26 @@ elif tab == "queue":
             # ── ACTION BUTTONS ──
             if not is_readonly:
                 if needs_bqms:
+                    st.markdown(f"""<div style="
+                        background: rgba(220,53,69,0.08);
+                        border: 1px solid rgba(220,53,69,0.25);
+                        border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;
+                    ">
+                        <span style="font-size:12px;font-weight:700;color:#ef4444;">
+                            🎫 Assign BQMS Number for {r.get('resNum','')}</span><br/>
+                        <span style="font-size:11px;opacity:0.6;">
+                            Type the actual number from the BQMS machine</span>
+                    </div>""", unsafe_allow_html=True)
                     ac1, ac2 = st.columns([3, 1])
                     with ac1:
-                        bv = st.text_input("BQMS#", key=f"assign_{r['id']}",
-                                           placeholder="e.g., L-023",
-                                           label_visibility="collapsed")
+                        bv = st.text_input(
+                            f"BQMS# for {r.get('resNum','')}",
+                            key=f"assign_{r['id']}",
+                            placeholder="Type BQMS# here (e.g., L-023)",
+                        )
                     with ac2:
+                        st.markdown("<div style='margin-top:6px;'></div>",
+                                    unsafe_allow_html=True)
                         if st.button("🎫 Assign", key=f"btn_a_{r['id']}",
                                      type="primary", use_container_width=True):
                             if bv.strip():
