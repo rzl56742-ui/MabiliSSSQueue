@@ -1,0 +1,8 @@
+[theme]
+primaryColor = "#0066A1"
+# No backgroundColor/secondaryBackgroundColor/textColor set
+# → Streamlit auto-adapts to user's system dark/light preference
+
+[server]
+headless = true
+maxUploadSize = 5
